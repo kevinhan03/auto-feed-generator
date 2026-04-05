@@ -205,7 +205,7 @@ export default function SlideEditor() {
       {/* 모바일 전용: 가로 슬라이드 스트립 */}
       <div className="md:hidden flex gap-2 overflow-x-auto shrink-0 px-3 py-2 border-b border-zinc-800">
         {slides.map((slide, i) => (
-          <div key={slide.id} className="shrink-0 w-14">
+          <div key={slide.id} className="shrink-0 w-28">
             <SlideCard
               slide={slide}
               isSelected={i === selectedIndex}
