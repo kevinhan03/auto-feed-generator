@@ -176,8 +176,8 @@ export default function SlideEditor() {
           >
             ← 대시보드
           </button>
-          <span className="text-zinc-700 text-sm">|</span>
-          <span className="text-white text-sm font-medium">슬라이드 에디터</span>
+          <span className="hidden sm:inline text-zinc-700 text-sm">|</span>
+          <span className="hidden sm:inline text-white text-sm font-medium">슬라이드 에디터</span>
           {isDirty && <span className="text-zinc-600 text-xs">· 저장 안 됨</span>}
         </div>
         <div className="flex items-center gap-2">
@@ -202,9 +202,22 @@ export default function SlideEditor() {
         </div>
       </header>
 
+      {/* 모바일 전용: 가로 슬라이드 스트립 */}
+      <div className="md:hidden flex gap-2 overflow-x-auto shrink-0 px-3 py-2 border-b border-zinc-800">
+        {slides.map((slide, i) => (
+          <div key={slide.id} className="shrink-0 w-14">
+            <SlideCard
+              slide={slide}
+              isSelected={i === selectedIndex}
+              onClick={() => setSelectedIndex(i)}
+            />
+          </div>
+        ))}
+      </div>
+
       <div className="flex flex-1 overflow-hidden">
-        {/* 좌측: 썸네일 */}
-        <aside className="w-52 border-r border-zinc-800 overflow-y-auto shrink-0 p-3 space-y-2">
+        {/* 데스크톱 전용: 좌측 썸네일 사이드바 */}
+        <aside className="hidden md:block w-52 border-r border-zinc-800 overflow-y-auto shrink-0 p-3 space-y-2">
           {slides.map((slide, i) => (
             <SlideCard
               key={slide.id}
@@ -215,9 +228,9 @@ export default function SlideEditor() {
           ))}
         </aside>
 
-        {/* 우측: 편집 패널 */}
+        {/* 편집 패널 */}
         {selectedSlide && (
-          <main className="flex-1 overflow-y-auto p-8">
+          <main className="flex-1 overflow-y-auto p-4 md:p-8">
             <div className="max-w-xl mx-auto space-y-6">
 
               {/* 슬라이드 번호 */}
