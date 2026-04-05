@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(rm -f package.json)",
+      "Bash(npx --yes create-vite@latest . --template react-ts)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__execute_sql"
+    ],
+    "additionalDirectories": [
+      "C:\\dev\\auto-feed-generator\\auto-feed-generator"
+    ]
+  }
+}

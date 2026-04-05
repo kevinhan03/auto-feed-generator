@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(update-config)",
+      "mcp__supabase__list_projects",
+      "mcp__supabase__list_organizations",
+      "Bash(claude mcp:*)",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__get_publishable_keys",
+      "Bash(curl -s \"https://generativelanguage.googleapis.com/v1beta/models?key=AIzaSyAVrwhZ-7lWm0ezdrW-LFq7tv9oVFxHRuY\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(npm run:*)",
+      "mcp__claude_ai_Vercel__deploy_to_vercel",
+      "Bash(vercel:*)"
+    ]
+  }
+}
