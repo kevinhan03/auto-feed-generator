@@ -37,6 +37,7 @@ export interface Post {
   status: PostStatus
   caption: string | null
   hashtags: string[] | null
+  logo_url: string | null
   created_at: string
 }
 
@@ -49,6 +50,27 @@ export type PostUpdate = Partial<Omit<Post, 'id' | 'created_at'>>
 
 // ─── Slide ───────────────────────────────────────────────────────────────────
 
+export interface TextPosition {
+  x: number  // % from left
+  y: number  // % from top
+}
+
+export interface LogoPosition {
+  x: number     // % from left
+  y: number     // % from top
+  size: number  // % of canvas width
+}
+
+export interface TextLayout {
+  title?: TextPosition
+  body?: TextPosition
+  titleColor?: string
+  bodyColor?: string
+  titleSize?: number   // px
+  bodySize?: number    // px
+  logoPos?: LogoPosition
+}
+
 export interface Slide {
   id: string
   post_id: string | null
@@ -57,6 +79,7 @@ export interface Slide {
   text_content: string | null
   image_url: string | null
   image_prompt: string | null
+  text_layout: TextLayout | null
   updated_at: string
 }
 

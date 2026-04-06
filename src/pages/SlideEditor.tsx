@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { generateCaption, recommendImage } from '../lib/claude'
@@ -17,6 +17,8 @@ export default function SlideEditor() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [tempSaving, setTempSaving] = useState(false)
+  const [tempSaved, setTempSaved] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
 
   // 이미지 추천 (슬라이드 ID별 저장)
@@ -30,18 +32,25 @@ export default function SlideEditor() {
   const [generatingCaption, setGeneratingCaption] = useState(false)
   const [captionError, setCaptionError] = useState<string | null>(null)
 
-  // 슬라이드 + 캡션 불러오기
+  // 로고
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoError, setLogoError] = useState<string | null>(null)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+
+  // 슬라이드 + 캡션 + 로고 불러오기
   useEffect(() => {
     if (!postId) { setLoading(false); return }
 
     Promise.all([
       supabase.from('slides').select('*').eq('post_id', postId).order('slide_number'),
-      supabase.from('posts').select('caption, hashtags').eq('id', postId).single(),
+      supabase.from('posts').select('caption, hashtags, logo_url').eq('id', postId).single(),
     ]).then(([slidesRes, postRes]) => {
       if (slidesRes.data) setSlides(slidesRes.data as Slide[])
       if (postRes.data) {
         setCaption(postRes.data.caption ?? '')
         setHashtags(postRes.data.hashtags ?? [])
+        setLogoUrl(postRes.data.logo_url ?? null)
       }
       setLoading(false)
     })
@@ -69,40 +78,69 @@ export default function SlideEditor() {
     setIsDirty(true)
   }, [selectedIndex])
 
-  // 저장
-  const handleSave = useCallback(async () => {
-    if (!postId || slides.length === 0) return
-    setSaving(true)
-    setSaveError(null)
-    setSaveSuccess(false)
+  // 슬라이드 + 캡션 공통 저장 헬퍼
+  const saveData = useCallback(async (opts: { setStatus: boolean }) => {
+    if (!postId || slides.length === 0) return null
 
-    const updates = slides.map(({ id, slide_number, title, text_content, image_url, image_prompt }) => ({
-      id, slide_number, title, text_content, image_url, image_prompt,
+    const updates = slides.map(({ id, slide_number, title, text_content, image_url, image_prompt, text_layout }) => ({
+      id, slide_number, title, text_content, image_url, image_prompt, text_layout,
       updated_at: new Date().toISOString(),
     }))
 
     const { error: slidesErr } = await supabase.from('slides').upsert(updates)
-    if (slidesErr) {
-      setSaveError(`저장 실패: ${slidesErr.message}`)
-      setSaving(false)
-      return
-    }
+    if (slidesErr) return slidesErr.message
 
-    const { error: postErr } = await supabase
-      .from('posts')
-      .update({ status: 'ready', caption: caption || null, hashtags: hashtags.length ? hashtags : null })
-      .eq('id', postId)
+    const postUpdate = opts.setStatus
+      ? { status: 'ready' as const, caption: caption || null, hashtags: hashtags.length ? hashtags : null, logo_url: logoUrl }
+      : { caption: caption || null, hashtags: hashtags.length ? hashtags : null, logo_url: logoUrl }
 
-    if (postErr) {
-      setSaveError(`저장 실패: ${postErr.message}`)
-      setSaving(false)
-      return
-    }
+    const { error: postErr } = await supabase.from('posts').update(postUpdate).eq('id', postId)
+    if (postErr) return postErr.message
 
+    return null
+  }, [slides, postId, caption, hashtags, logoUrl])
+
+  // 임시저장 (대시보드 이동 없음, status 유지)
+  const handleTempSave = useCallback(async () => {
+    setTempSaving(true)
+    setSaveError(null)
+    const err = await saveData({ setStatus: false })
+    setTempSaving(false)
+    if (err) { setSaveError(`저장 실패: ${err}`); return }
+    setIsDirty(false)
+    setTempSaved(true)
+    setTimeout(() => setTempSaved(false), 2000)
+  }, [saveData])
+
+  // 최종 저장 (status → ready, 대시보드 이동)
+  const handleSave = useCallback(async () => {
+    setSaving(true)
+    setSaveError(null)
+    setSaveSuccess(false)
+    const err = await saveData({ setStatus: true })
+    setSaving(false)
+    if (err) { setSaveError(`저장 실패: ${err}`); return }
     setIsDirty(false)
     setSaveSuccess(true)
     setTimeout(() => navigate('/dashboard'), 1000)
-  }, [slides, postId, caption, hashtags, navigate])
+  }, [saveData, navigate])
+
+  // 로고 업로드
+  const handleLogoUpload = useCallback(async (file: File) => {
+    if (!postId) return
+    if (!file.type.startsWith('image/')) { setLogoError('이미지 파일만 업로드 가능합니다.'); return }
+    setLogoUploading(true)
+    setLogoError(null)
+    const path = `logos/${postId}`
+    const { error: upErr } = await supabase.storage
+      .from('slide-images')
+      .upload(path, file, { upsert: true, contentType: file.type })
+    if (upErr) { setLogoError(`업로드 실패: ${upErr.message}`); setLogoUploading(false); return }
+    const { data } = supabase.storage.from('slide-images').getPublicUrl(path)
+    setLogoUrl(`${data.publicUrl}?t=${Date.now()}`)
+    setIsDirty(true)
+    setLogoUploading(false)
+  }, [postId])
 
   // 이미지 추천
   const handleRecommendImage = useCallback(async () => {
@@ -183,17 +221,26 @@ export default function SlideEditor() {
         <div className="flex items-center gap-2">
           {saveError && <span className="text-red-400 text-xs">{saveError}</span>}
           {saveSuccess && <span className="text-green-400 text-xs">저장됐습니다</span>}
+          {tempSaved && <span className="text-green-400 text-xs">임시저장 완료</span>}
           <button
             onClick={() => navigate(`/preview?postId=${postId}`)}
-            disabled={saving}
+            disabled={saving || tempSaving}
             className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-md
               disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             미리보기
           </button>
           <button
+            onClick={handleTempSave}
+            disabled={saving || tempSaving}
+            className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-md
+              disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {tempSaving ? '저장 중...' : '임시저장'}
+          </button>
+          <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || tempSaving}
             className="px-4 py-1.5 bg-white text-zinc-950 text-sm font-medium rounded-md
               hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
@@ -264,6 +311,50 @@ export default function SlideEditor() {
                     rounded-lg p-4 outline-none border border-zinc-800
                     focus:border-zinc-600 placeholder:text-zinc-700
                     resize-none transition-colors"
+                />
+              </div>
+
+              {/* 계정 로고 */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-zinc-500 text-xs">
+                    계정 로고
+                    <span className="ml-1.5 text-zinc-700">모든 슬라이드에 공통 적용</span>
+                  </label>
+                  {logoUrl && (
+                    <button
+                      onClick={() => { setLogoUrl(null); setIsDirty(true) }}
+                      className="text-zinc-600 hover:text-red-400 text-xs transition-colors"
+                    >
+                      삭제
+                    </button>
+                  )}
+                </div>
+                <div
+                  onClick={() => logoInputRef.current?.click()}
+                  onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleLogoUpload(f) }}
+                  onDragOver={e => e.preventDefault()}
+                  className="flex items-center gap-3 p-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-600
+                    rounded-lg cursor-pointer transition-colors"
+                >
+                  {logoUrl ? (
+                    <>
+                      <img src={logoUrl} alt="로고" className="h-10 w-auto object-contain rounded" />
+                      <span className="text-zinc-500 text-xs">클릭 또는 드래그로 교체</span>
+                    </>
+                  ) : (
+                    <span className="text-zinc-600 text-xs">
+                      {logoUploading ? '업로드 중...' : '클릭 또는 드래그앤드롭으로 로고 업로드'}
+                    </span>
+                  )}
+                </div>
+                {logoError && <p className="text-red-400 text-xs">{logoError}</p>}
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f) }}
                 />
               </div>
 

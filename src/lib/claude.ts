@@ -116,6 +116,7 @@ export async function generateSlides(research: BrandResearch): Promise<Slide[]> 
     text_content: slide.text_content ?? null,
     image_url: null,
     image_prompt: slide.image_prompt ?? null,
+    text_layout: null,
     updated_at: new Date().toISOString(),
   }))
 }
