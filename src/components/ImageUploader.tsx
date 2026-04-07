@@ -64,7 +64,7 @@ export default function ImageUploader({ slideId, currentImageUrl, onUpload }: Im
     <div className="space-y-2">
       {/* 현재 이미지 미리보기 */}
       {currentImageUrl && (
-        <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-zinc-800">
+        <div className="relative aspect-square w-1/2 rounded-lg overflow-hidden bg-zinc-800">
           <img
             src={currentImageUrl}
             alt="현재 이미지"
@@ -81,13 +81,13 @@ export default function ImageUploader({ slideId, currentImageUrl, onUpload }: Im
         onClick={() => inputRef.current?.click()}
         className={`
           relative flex flex-col items-center justify-center gap-2
-          aspect-square w-full rounded-lg border-2 border-dashed cursor-pointer
+          w-1/2 rounded-lg border-2 border-dashed cursor-pointer
           transition-colors select-none
           ${isDragging
             ? 'border-white bg-zinc-800'
             : 'border-zinc-600 bg-zinc-900 hover:border-zinc-400 hover:bg-zinc-800'
           }
-          ${currentImageUrl ? 'aspect-auto py-6' : 'aspect-square'}
+          ${currentImageUrl ? 'py-4' : 'aspect-square'}
         `}
       >
         {uploading ? (
