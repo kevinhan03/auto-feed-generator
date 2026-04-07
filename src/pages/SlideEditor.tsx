@@ -397,7 +397,7 @@ export default function SlideEditor() {
                   value={selectedSlide.text_content ?? ''}
                   onChange={(e) => updateField('text_content', e.target.value)}
                   placeholder="본문을 입력하세요"
-                  rows={6}
+                  rows={18}
                   className="w-full bg-zinc-900 text-white text-sm leading-relaxed
                     rounded-lg p-4 outline-none border border-zinc-800
                     focus:border-zinc-600 placeholder:text-zinc-700
