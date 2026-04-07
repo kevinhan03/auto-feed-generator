@@ -4,18 +4,28 @@ interface SlideCardProps {
   slide: Slide
   isSelected: boolean
   onClick: () => void
+  draggable?: boolean
+  onDragStart?: () => void
+  onDragOver?: (e: React.DragEvent) => void
+  onDrop?: () => void
+  isDragOver?: boolean
 }
 
-export default function SlideCard({ slide, isSelected, onClick }: SlideCardProps) {
+export default function SlideCard({
+  slide, isSelected, onClick,
+  draggable, onDragStart, onDragOver, onDrop, isDragOver,
+}: SlideCardProps) {
   return (
     <button
       onClick={onClick}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       className={`
         relative w-full aspect-square rounded-lg overflow-hidden border-2 transition-all text-left
-        ${isSelected
-          ? 'border-white'
-          : 'border-zinc-700 hover:border-zinc-500'
-        }
+        ${isSelected ? 'border-white' : isDragOver ? 'border-blue-400' : 'border-zinc-700 hover:border-zinc-500'}
+        ${isDragOver ? 'scale-105' : ''}
       `}
     >
       {/* 배경 이미지 */}

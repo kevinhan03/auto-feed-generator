@@ -21,6 +21,10 @@ export default function SlideEditor() {
   const [tempSaved, setTempSaved] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
 
+  // 드래그 앤 드롭 순서 변경
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
   // 이미지 추천 (슬라이드 ID별 저장)
   const [imageRecs, setImageRecs] = useState<Record<string, string>>({})
   const [loadingRec, setLoadingRec] = useState(false)
@@ -142,6 +146,61 @@ export default function SlideEditor() {
     setLogoUploading(false)
   }, [postId])
 
+  // 빈 슬라이드 추가
+  const handleAddSlide = useCallback(async () => {
+    if (!postId) return
+    const newSlideNumber = slides.length + 1
+    const { data, error } = await supabase
+      .from('slides')
+      .insert({
+        post_id: postId,
+        slide_number: newSlideNumber,
+        title: null,
+        text_content: null,
+        image_url: null,
+        image_prompt: null,
+        text_layout: null,
+      })
+      .select()
+      .single()
+    if (error || !data) return
+    setSlides(prev => [...prev, data as Slide])
+    setSelectedIndex(newSlideNumber - 1)
+    setIsDirty(true)
+  }, [postId, slides.length])
+
+  // 드래그 재정렬
+  const handleDragStart = useCallback((index: number) => {
+    setDragIndex(index)
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    setDragOverIndex(index)
+  }, [])
+
+  const handleDrop = useCallback((dropIndex: number) => {
+    if (dragIndex === null || dragIndex === dropIndex) {
+      setDragIndex(null)
+      setDragOverIndex(null)
+      return
+    }
+    const reordered = [...slides]
+    const [moved] = reordered.splice(dragIndex, 1)
+    reordered.splice(dropIndex, 0, moved)
+    const renumbered = reordered.map((s, i) => ({ ...s, slide_number: i + 1 }))
+    setSlides(renumbered)
+    setSelectedIndex(dropIndex)
+    setDragIndex(null)
+    setDragOverIndex(null)
+    setIsDirty(true)
+  }, [dragIndex, slides])
+
+  const handleDragEnd = useCallback(() => {
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }, [])
+
   // 이미지 추천
   const handleRecommendImage = useCallback(async () => {
     if (!selectedSlide) return
@@ -257,22 +316,54 @@ export default function SlideEditor() {
               slide={slide}
               isSelected={i === selectedIndex}
               onClick={() => setSelectedIndex(i)}
+              draggable
+              onDragStart={() => handleDragStart(i)}
+              onDragOver={(e) => handleDragOver(e, i)}
+              onDrop={() => handleDrop(i)}
+              isDragOver={dragOverIndex === i && dragIndex !== i}
             />
           </div>
         ))}
+        <div className="shrink-0 w-28">
+          <button
+            onClick={handleAddSlide}
+            onDragEnd={handleDragEnd}
+            className="w-full aspect-square rounded-lg border-2 border-dashed border-zinc-700
+              hover:border-zinc-500 flex items-center justify-center text-zinc-600
+              hover:text-zinc-400 transition-colors text-2xl"
+          >
+            +
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
         {/* 데스크톱 전용: 좌측 썸네일 사이드바 */}
-        <aside className="hidden md:block w-52 border-r border-zinc-800 overflow-y-auto shrink-0 p-3 space-y-2">
+        <aside
+          className="hidden md:block w-52 border-r border-zinc-800 overflow-y-auto shrink-0 p-3 space-y-2"
+          onDragEnd={handleDragEnd}
+        >
           {slides.map((slide, i) => (
             <SlideCard
               key={slide.id}
               slide={slide}
               isSelected={i === selectedIndex}
               onClick={() => setSelectedIndex(i)}
+              draggable
+              onDragStart={() => handleDragStart(i)}
+              onDragOver={(e) => handleDragOver(e, i)}
+              onDrop={() => handleDrop(i)}
+              isDragOver={dragOverIndex === i && dragIndex !== i}
             />
           ))}
+          <button
+            onClick={handleAddSlide}
+            className="w-full aspect-square rounded-lg border-2 border-dashed border-zinc-700
+              hover:border-zinc-500 flex items-center justify-center text-zinc-600
+              hover:text-zinc-400 transition-colors text-2xl"
+          >
+            +
+          </button>
         </aside>
 
         {/* 편집 패널 */}
