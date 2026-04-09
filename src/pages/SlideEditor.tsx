@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { generateCaption, recommendImage } from '../lib/claude'
-import type { Slide } from '../types'
+import type { Slide, BrandResearch } from '../types'
 import SlideCard from '../components/SlideCard'
 import ImageUploader from '../components/ImageUploader'
 
@@ -20,6 +20,10 @@ export default function SlideEditor() {
   const [tempSaving, setTempSaving] = useState(false)
   const [tempSaved, setTempSaved] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
+
+  // 리서치 결과 모달
+  const [researchData, setResearchData] = useState<BrandResearch | null>(null)
+  const [showResearchModal, setShowResearchModal] = useState(false)
 
   // 드래그 앤 드롭 순서 변경
   const [dragIndex, setDragIndex] = useState<number | null>(null)
@@ -48,13 +52,24 @@ export default function SlideEditor() {
 
     Promise.all([
       supabase.from('slides').select('*').eq('post_id', postId).order('slide_number'),
-      supabase.from('posts').select('caption, hashtags, logo_url').eq('id', postId).single(),
-    ]).then(([slidesRes, postRes]) => {
+      supabase.from('posts').select('caption, hashtags, logo_url, brand_id').eq('id', postId).single(),
+    ]).then(async ([slidesRes, postRes]) => {
       if (slidesRes.data) setSlides(slidesRes.data as Slide[])
       if (postRes.data) {
         setCaption(postRes.data.caption ?? '')
         setHashtags(postRes.data.hashtags ?? [])
         setLogoUrl(postRes.data.logo_url ?? null)
+
+        if (postRes.data.brand_id) {
+          const { data: brandData } = await supabase
+            .from('brands')
+            .select('research_data')
+            .eq('id', postRes.data.brand_id)
+            .single()
+          if (brandData?.research_data) {
+            setResearchData(brandData.research_data as unknown as BrandResearch)
+          }
+        }
       }
       setLoading(false)
     })
@@ -281,6 +296,16 @@ export default function SlideEditor() {
           {saveError && <span className="text-red-400 text-xs">{saveError}</span>}
           {saveSuccess && <span className="text-green-400 text-xs">저장됐습니다</span>}
           {tempSaved && <span className="text-green-400 text-xs">임시저장 완료</span>}
+          {researchData && (
+            <button
+              onClick={() => setShowResearchModal(true)}
+              disabled={saving || tempSaving}
+              className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-md
+                disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              리서치 결과
+            </button>
+          )}
           <button
             onClick={() => navigate(`/preview?postId=${postId}`)}
             disabled={saving || tempSaving}
@@ -561,6 +586,70 @@ export default function SlideEditor() {
           </main>
         )}
       </div>
+
+      {/* 리서치 결과 모달 */}
+      {showResearchModal && researchData && (
+        <ResearchModal research={researchData} onClose={() => setShowResearchModal(false)} />
+      )}
+    </div>
+  )
+}
+
+// ─── ResearchModal ────────────────────────────────────────────────────────────
+
+function ResearchModal({ research, onClose }: { research: BrandResearch; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+      onClick={onClose}
+    >
+      <div
+        className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-lg max-h-[80vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* 모달 헤더 */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
+          <h2 className="text-white text-sm font-semibold">리서치 결과 — {research.brandName}</h2>
+          <button
+            onClick={onClose}
+            className="text-zinc-500 hover:text-white transition-colors text-lg leading-none"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* 모달 본문 */}
+        <div className="overflow-y-auto p-5 space-y-4">
+          <ResearchRow label="창립" value={research.founded} />
+          <ResearchRow label="창립자" value={research.founder} />
+          <ResearchRow label="브랜드 철학" value={research.philosophy} />
+          <ResearchRow label="시그니처 디테일" value={research.signatureDetails} />
+          <ResearchRow label="파고들기 포인트" value={research.diggingPoint} />
+          <ResearchRow label="무드 & 분위기" value={research.moodDescription} />
+          {research.keywords && research.keywords.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-zinc-500 text-xs">키워드</p>
+              <div className="flex flex-wrap gap-1.5">
+                {research.keywords.map((kw, i) => (
+                  <span key={i} className="bg-zinc-800 text-zinc-300 text-xs px-2 py-0.5 rounded-full">
+                    {kw}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ResearchRow({ label, value }: { label: string; value: string }) {
+  if (!value) return null
+  return (
+    <div className="space-y-1">
+      <p className="text-zinc-500 text-xs">{label}</p>
+      <p className="text-zinc-200 text-sm leading-relaxed">{value}</p>
     </div>
   )
 }
