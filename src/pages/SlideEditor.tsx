@@ -39,6 +39,7 @@ export default function SlideEditor() {
   const [hashtags, setHashtags] = useState<string[]>([])
   const [generatingCaption, setGeneratingCaption] = useState(false)
   const [captionError, setCaptionError] = useState<string | null>(null)
+  const [copiedCaption, setCopiedCaption] = useState(false)
 
   // 로고
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
@@ -231,6 +232,14 @@ export default function SlideEditor() {
     }
   }, [selectedSlide])
 
+  const handleCopyCaption = useCallback(async () => {
+    const hashtagText = hashtags.map(t => `#${t}`).join(' ')
+    const text = [caption, hashtagText].filter(Boolean).join('\n\n')
+    await navigator.clipboard.writeText(text)
+    setCopiedCaption(true)
+    setTimeout(() => setCopiedCaption(false), 2000)
+  }, [caption, hashtags])
+
   // 캡션 자동 생성
   const handleGenerateCaption = useCallback(async () => {
     if (slides.length === 0) return
@@ -306,6 +315,14 @@ export default function SlideEditor() {
               리서치 결과
             </button>
           )}
+          <button
+            onClick={() => navigate(`/card-editor?postId=${postId}`)}
+            disabled={saving || tempSaving}
+            className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-md
+              disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            카드 편집
+          </button>
           <button
             onClick={() => navigate(`/preview?postId=${postId}`)}
             disabled={saving || tempSaving}
@@ -541,14 +558,25 @@ export default function SlideEditor() {
                     <p className="text-white text-sm font-medium">캡션 & 해시태그</p>
                     <p className="text-zinc-600 text-xs mt-0.5">포스트 전체에 적용됩니다</p>
                   </div>
-                  <button
-                    onClick={handleGenerateCaption}
-                    disabled={generatingCaption}
-                    className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs
-                      rounded-md disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {generatingCaption ? '생성 중...' : '자동 생성'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {caption && (
+                      <button
+                        onClick={handleCopyCaption}
+                        className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400
+                          hover:text-zinc-200 text-xs rounded-md transition-colors"
+                      >
+                        {copiedCaption ? '복사됨 ✓' : '복사'}
+                      </button>
+                    )}
+                    <button
+                      onClick={handleGenerateCaption}
+                      disabled={generatingCaption}
+                      className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs
+                        rounded-md disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {generatingCaption ? '생성 중...' : '자동 생성'}
+                    </button>
+                  </div>
                 </div>
 
                 {captionError && <p className="text-red-400 text-xs">{captionError}</p>}

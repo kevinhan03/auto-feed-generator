@@ -1,17 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { defaultLayout, renderSlideToBlob } from '../lib/canvas'
 import type { Slide, TextLayout, TextPosition, LogoPosition } from '../types'
 
 type PostMeta = { caption: string | null; hashtags: string[] | null; brands: { brand_name: string } | null; logo_url: string | null }
-
-// 기본 위치 (이미지 없을 때 / 이미지 있을 때 구분)
-function defaultLayout(hasImage: boolean): TextLayout {
-  if (hasImage) {
-    return { title: { x: 5, y: 72 }, body: { x: 5, y: 82 }, logoPos: { x: 5, y: 5, size: 20 } }
-  }
-  return { title: { x: 8, y: 65 }, body: { x: 8, y: 78 }, logoPos: { x: 5, y: 5, size: 20 } }
-}
 
 // hex 문자열 유효성 검사 (#fff, #ffffff, fff, ffffff 모두 수용 → #xxxxxx 반환)
 function parseHex(raw: string): string | null {
@@ -264,6 +257,9 @@ export default function Preview() {
   const [savingLayout, setSavingLayout] = useState(false)
   const [layoutSaved, setLayoutSaved] = useState(false)
 
+  const [downloading, setDownloading] = useState(false)
+  const [copiedCaption, setCopiedCaption] = useState(false)
+
   const canvasRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -339,6 +335,43 @@ export default function Preview() {
     setLayoutSaved(true)
     setTimeout(() => setLayoutSaved(false), 2000)
   }, [slides, layouts])
+
+  const handleDownloadZip = useCallback(async () => {
+    if (!slides.length) return
+    setDownloading(true)
+    try {
+      const { default: JSZip } = await import('jszip')
+      const zip = new JSZip()
+      for (const [i, slide] of slides.entries()) {
+        const rawLayout = layouts[slide.id] ?? defaultLayout(!!slide.image_url)
+        const layout: TextLayout = post?.logo_url && !rawLayout.logoPos
+          ? { ...rawLayout, logoPos: defaultLayout(!!slide.image_url).logoPos }
+          : rawLayout
+        const blob = await renderSlideToBlob(slide, layout, post?.logo_url ?? null)
+        zip.file(`slide_${String(i + 1).padStart(2, '0')}.jpg`, blob)
+      }
+      const content = await zip.generateAsync({ type: 'blob' })
+      const url = URL.createObjectURL(content)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${post?.brands?.brand_name || 'slides'}.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } finally {
+      setDownloading(false)
+    }
+  }, [slides, layouts, post])
+
+  const handleCopyCaption = useCallback(async () => {
+    if (!post?.caption) return
+    const hashtagText = post.hashtags?.map(t => `#${t}`).join(' ') ?? ''
+    const text = [post.caption, hashtagText].filter(Boolean).join('\n\n')
+    await navigator.clipboard.writeText(text)
+    setCopiedCaption(true)
+    setTimeout(() => setCopiedCaption(false), 2000)
+  }, [post])
 
   const handleResetLayout = useCallback(() => {
     const slide = slides[currentIndex]
@@ -419,12 +452,22 @@ export default function Preview() {
             </>
           )}
           {!editMode && (
-            <button
-              onClick={() => setEditMode(true)}
-              className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-md transition-colors"
-            >
-              텍스트 배치
-            </button>
+            <>
+              <button
+                onClick={handleDownloadZip}
+                disabled={downloading}
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-md
+                  disabled:opacity-40 transition-colors"
+              >
+                {downloading ? '생성 중...' : 'ZIP 다운로드'}
+              </button>
+              <button
+                onClick={() => setEditMode(true)}
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-md transition-colors"
+              >
+                텍스트 배치
+              </button>
+            </>
           )}
           <button
             onClick={handleSaveLayout}
@@ -433,6 +476,12 @@ export default function Preview() {
               disabled:opacity-40 transition-colors"
           >
             {savingLayout ? '저장 중...' : '임시저장'}
+          </button>
+          <button
+            onClick={() => navigate(`/card-editor?postId=${postId}`)}
+            className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-md transition-colors"
+          >
+            카드 편집
           </button>
           <button
             onClick={() => navigate(`/slide-editor?postId=${postId}`)}
@@ -503,6 +552,7 @@ export default function Preview() {
                 src={slide.image_url}
                 alt={slide.title ?? ''}
                 className="w-full h-full object-cover"
+                style={{ objectPosition: layout.imagePosition ?? 'center' }}
                 draggable={false}
               />
             ) : (
@@ -596,6 +646,16 @@ export default function Preview() {
           {/* 캡션 */}
           {post?.caption && (
             <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-500 text-xs">캡션</span>
+                <button
+                  onClick={handleCopyCaption}
+                  className="text-xs px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-400
+                    hover:text-zinc-200 rounded-md transition-colors"
+                >
+                  {copiedCaption ? '복사됨 ✓' : '복사'}
+                </button>
+              </div>
               <p className="text-white text-xs leading-relaxed">
                 <span className="font-semibold mr-1.5">pyeonzipshop</span>
                 {post.caption}

@@ -4,6 +4,7 @@ import NewPost from './pages/NewPost'
 import SlideEditor from './pages/SlideEditor'
 import ImageGen from './pages/ImageGen'
 import Preview from './pages/Preview'
+import CardEditor from './pages/CardEditor'
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/slide-editor" element={<SlideEditor />} />
         <Route path="/image-gen" element={<ImageGen />} />
         <Route path="/preview" element={<Preview />} />
+        <Route path="/card-editor" element={<CardEditor />} />
       </Routes>
     </BrowserRouter>
   )

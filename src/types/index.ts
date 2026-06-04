@@ -69,6 +69,7 @@ export interface TextLayout {
   titleSize?: number   // px
   bodySize?: number    // px
   logoPos?: LogoPosition
+  imagePosition?: 'left' | 'center' | 'right'
 }
 
 export interface Slide {
