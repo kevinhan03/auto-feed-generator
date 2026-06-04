@@ -123,7 +123,7 @@ export default function Dashboard() {
                 onEdit={() =>
                   post.status === 'draft'
                     ? navigate(`/new-post?postId=${post.id}`)
-                    : navigate(`/slide-editor?postId=${post.id}`)
+                    : navigate(`/card-editor?postId=${post.id}`)
                 }
                 onPreview={() => navigate(`/preview?postId=${post.id}`)}
                 onDelete={() => handleDelete(post.id)}

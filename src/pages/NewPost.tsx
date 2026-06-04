@@ -68,7 +68,7 @@ export default function NewPost() {
           .eq('post_id', draftPostId)
 
         if (count && count > 0) {
-          navigate(`/slide-editor?postId=${draftPostId}`, { replace: true })
+          navigate(`/card-editor?postId=${draftPostId}`, { replace: true })
           return
         }
 
@@ -205,7 +205,7 @@ export default function NewPost() {
         const { error: slidesErr } = await supabase.from('slides').insert(slideRows(editingPostId))
         if (slidesErr) throw new Error(`슬라이드 저장 실패: ${slidesErr.message}`)
 
-        navigate(`/slide-editor?postId=${editingPostId}`)
+        navigate(`/card-editor?postId=${editingPostId}`)
       } else {
         // 신규 생성
         const { data: brandData, error: brandErr } = await supabase
@@ -228,7 +228,7 @@ export default function NewPost() {
         const { error: slidesErr } = await supabase.from('slides').insert(slideRows(postData.id))
         if (slidesErr) throw new Error(`슬라이드 저장 실패: ${slidesErr.message}`)
 
-        navigate(`/slide-editor?postId=${postData.id}`)
+        navigate(`/card-editor?postId=${postData.id}`)
       }
     } catch (err) {
       setTaskError(err instanceof Error ? err.message : '저장 중 오류가 발생했습니다.')
